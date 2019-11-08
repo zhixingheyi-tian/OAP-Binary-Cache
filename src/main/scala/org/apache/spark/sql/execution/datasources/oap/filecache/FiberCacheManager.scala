@@ -152,6 +152,7 @@ private[sql] class FiberCacheManager(
     val dataFibers = cacheBackend.getFibers.collect {
       case vector: VectorDataFiberId => vector
       case binary: BinaryDataFiberId => binary
+      case orcbinary: OrcBinaryFiberId => orcbinary
     }
 
     // Use a bit set to represent current cache status of one file.

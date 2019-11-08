@@ -29,6 +29,9 @@ import org.apache.orc.OrcConf;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.impl.ReaderImpl;
+import org.apache.orc.impl.RecordReaderBinaryImpl;
+//import org.apache.orc.impl.RecordReaderImpl;
 import org.apache.orc.mapred.OrcInputFormat;
 import org.apache.orc.storage.common.type.HiveDecimal;
 import org.apache.orc.storage.ql.exec.vector.*;
@@ -147,7 +150,7 @@ public class OrcColumnarBatchReader extends RecordReader<Void, ColumnarBatch> {
         .filesystem(fileSystem));
     Reader.Options options =
       OrcInputFormat.buildOptions(conf, reader, 0, length);
-    recordReader = reader.rows(options);
+    recordReader = new RecordReaderBinaryImpl((ReaderImpl)reader, options);
   }
 
   /**

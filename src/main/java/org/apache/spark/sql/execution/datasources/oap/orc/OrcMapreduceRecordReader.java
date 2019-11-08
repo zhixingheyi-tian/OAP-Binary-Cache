@@ -32,6 +32,8 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.impl.ReaderImpl;
+import org.apache.orc.impl.RecordReaderBinaryImpl;
 import org.apache.orc.mapred.OrcMapredRecordReader;
 import org.apache.orc.mapred.OrcStruct;
 import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
@@ -64,7 +66,7 @@ public class OrcMapreduceRecordReader<V extends WritableComparable>
     Reader.Options options = org.apache.orc.mapred.OrcInputFormat.buildOptions(conf,
         fileReader, 0, length);
 
-    this.batchReader = fileReader.rows(options);
+    this.batchReader = new RecordReaderBinaryImpl((ReaderImpl)fileReader, options);
     if (options.getSchema() == null) {
       schema = fileReader.getSchema();
     } else {
