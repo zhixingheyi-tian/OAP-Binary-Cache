@@ -117,7 +117,18 @@ object HadoopFsRelationOptimizer extends Logging {
             relation.options,
             selectedPartitions.flatMap(p => p.files))
 
-        if (optimizedOrcFileFormat.hasAvailableIndex(dataFilters)) {
+        def canUseBinaryCache: Boolean = {
+          val runtimeConf = relation.sparkSession.conf
+          val ret = runtimeConf.get(OapConf.OAP_ORC_BINARY_DATA_CACHE_ENABLED)
+          logDebug(s"config - ${OapConf.OAP_ORC_BINARY_DATA_CACHE_ENABLED.key} is $ret")
+          if (ret) {
+            logInfo("data cache enable and suitable for use , " +
+              "will replace with optimizedOrcFileFormat.")
+          }
+          ret
+        }
+
+        if (optimizedOrcFileFormat.hasAvailableIndex(dataFilters) || canUseBinaryCache) {
           logInfo("hasAvailableIndex = true, will replace with OapFileFormat.")
           val orcOptions: Map[String, String] =
             Map(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key ->

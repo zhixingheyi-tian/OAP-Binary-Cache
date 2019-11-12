@@ -52,7 +52,8 @@ trait OapCache {
   }
 
   def incFiberCountAndSize(fiber: FiberId, count: Long, size: Long): Unit = {
-    if (fiber.isInstanceOf[VectorDataFiberId] || fiber.isInstanceOf[BinaryDataFiberId]) {
+    if (fiber.isInstanceOf[VectorDataFiberId] || fiber.isInstanceOf[BinaryDataFiberId]
+      || fiber.isInstanceOf[OrcBinaryFiberId]) {
       dataFiberCount.addAndGet(count)
       dataFiberSize.addAndGet(size)
     } else if (fiber.isInstanceOf[BTreeFiberId] || fiber.isInstanceOf[BitmapFiberId]) {
@@ -68,6 +69,7 @@ trait OapCache {
     val cache = fiber match {
       case VectorDataFiberId(file, columnIndex, rowGroupId) => file.cache(rowGroupId, columnIndex)
       case chunk: BinaryDataFiberId => chunk.doCache()
+      case orcChunk: OrcBinaryFiberId => orcChunk.doCache()
       case BTreeFiberId(getFiberData, _, _, _) => getFiberData.apply()
       case BitmapFiberId(getFiberData, _, _, _) => getFiberData.apply()
       case TestFiberId(getFiberData, _) => getFiberData.apply()
