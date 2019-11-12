@@ -278,7 +278,7 @@ public class RecordReaderBinaryUtils {
 
     public DiskRangeList readFileColumnData(
             DiskRangeList range, long baseOffset, boolean doForceDirect) throws IOException {
-      return RecordReaderBinaryUtils.readColumnRanges(file, path, zcr, baseOffset, range, doForceDirect);
+      return RecordReaderBinaryUtils.readColumnRanges(file, path, baseOffset, range, doForceDirect);
     }
 
     @Override
@@ -587,7 +587,6 @@ public class RecordReaderBinaryUtils {
    */
   static DiskRangeList readColumnRanges(FSDataInputStream file,
                                         Path path,
-                                        HadoopShims.ZeroCopyReaderShim zcr,
                                         long base,
                                         DiskRangeList range,
                                         boolean doForceDirect) throws IOException {
@@ -603,39 +602,21 @@ public class RecordReaderBinaryUtils {
       }
       int len = (int) (range.getEnd() - range.getOffset());
       long off = range.getOffset();
-      if (zcr != null) {
-        file.seek(base + off);
-        boolean hasReplaced = false;
-        while (len > 0) {
-          ByteBuffer partial = zcr.readBuffer(len, false);
-          BufferChunk bc = new BufferChunk(partial, off);
-          if (!hasReplaced) {
-            range.replaceSelfWith(bc);
-            hasReplaced = true;
-          } else {
-            range.insertAfter(bc);
-          }
-          range = bc;
-          int read = partial.remaining();
-          len -= read;
-          off += read;
-        }
-      } else {
-        // Don't use HDFS ByteBuffer API because it has no readFully, and is buggy and pointless.
+      // Don't use HDFS ByteBuffer API because it has no readFully, and is buggy and pointless.
 
-        byte[] buffer = new byte[len];
+      byte[] buffer = new byte[len];
 //        file.readFully((base + off), buffer, 0, buffer.length);
 
-        DataFile dataFile = new OrcDataFile(path.toUri().toString(), new StructType(), new Configuration());
-        FiberCacheManager cacheManager = OapRuntime$.MODULE$.getOrCreate().fiberCacheManager();
-        FiberCache fiberCache = null;
-        OrcBinaryFiberId fiberId = null;
-        ColumnDiskRangeList columnRange = (ColumnDiskRangeList)range;
-        fiberId = new OrcBinaryFiberId(dataFile, columnRange.columnId, columnRange.currentStripe);
-        fiberId.withLoadCacheParameters(file, base + off, len);
-        fiberCache = cacheManager.get(fiberId);
-        long fiberOffset = fiberCache.getBaseOffset();
-        Platform.copyMemory(null, fiberOffset, buffer, Platform.BYTE_ARRAY_OFFSET, len);
+      DataFile dataFile = new OrcDataFile(path.toUri().toString(), new StructType(), new Configuration());
+      FiberCacheManager cacheManager = OapRuntime$.MODULE$.getOrCreate().fiberCacheManager();
+      FiberCache fiberCache = null;
+      OrcBinaryFiberId fiberId = null;
+      ColumnDiskRangeList columnRange = (ColumnDiskRangeList)range;
+      fiberId = new OrcBinaryFiberId(dataFile, columnRange.columnId, columnRange.currentStripe);
+      fiberId.withLoadCacheParameters(file, base + off, len);
+      fiberCache = cacheManager.get(fiberId);
+      long fiberOffset = fiberCache.getBaseOffset();
+      Platform.copyMemory(null, fiberOffset, buffer, Platform.BYTE_ARRAY_OFFSET, len);
 
 
 //        Map<String, byte[]> bufferMap = new HashMap<String, byte[]>();
@@ -643,17 +624,16 @@ public class RecordReaderBinaryUtils {
 //        bufferMap.put(columnRange.columnId + ";" + columnRange.currentStripe, buffer);
 //
 //        byte[] data =  bufferMap.get(columnRange.columnId + ";" + columnRange.currentStripe);
-        ByteBuffer bb = null;
-        if (doForceDirect) {
-          bb = ByteBuffer.allocateDirect(len);
-          bb.put(buffer);
-          bb.position(0);
-          bb.limit(len);
-        } else {
-          bb = ByteBuffer.wrap(buffer);
-        }
-        range = range.replaceSelfWith(new BufferChunk(bb, range.getOffset()));
+      ByteBuffer bb = null;
+      if (doForceDirect) {
+        bb = ByteBuffer.allocateDirect(len);
+        bb.put(buffer);
+        bb.position(0);
+        bb.limit(len);
+      } else {
+        bb = ByteBuffer.wrap(buffer);
       }
+      range = range.replaceSelfWith(new BufferChunk(bb, range.getOffset()));
       range = range.next;
     }
     return prev.next;
